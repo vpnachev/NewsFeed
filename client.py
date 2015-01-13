@@ -3,15 +3,18 @@
 import sys
 import socket
 import select
- 
+
+ENCODING = "utf-8"
+
 def chat_client():
-    if(len(sys.argv) < 3) :
-        print 'Usage : python chat_client.py hostname port'
+    if(len(sys.argv) < 0):
+        print('Usage : python client.py')
         sys.exit()
 
-    host = sys.argv[1]
-    port = int(sys.argv[2])
-     
+    #host = sys.argv[1]
+    #port = int(sys.argv[2])
+    host = "127.0.0.1"
+    port = 54554
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(2)
      
@@ -19,13 +22,13 @@ def chat_client():
     try :
         s.connect((host, port))
     except :
-        print 'Unable to connect'
+        print ('Unable to connect')
         sys.exit()
      
-    print 'Connected to remote host. You can start sending messages'
+    print('Connected to remote host. You can start sending messages')
     sys.stdout.write('[Me] '); sys.stdout.flush()
      
-    while 1:
+    while True:
         socket_list = [sys.stdin, s]
          
         # Get the list sockets which are readable
@@ -36,7 +39,7 @@ def chat_client():
                 # incoming message from remote server, s
                 data = sock.recv(4096)
                 if not data :
-                    print '\nDisconnected from chat server'
+                    print ('\nDisconnected from chat server')
                     sys.exit()
                 else :
                     #print data
