@@ -1,7 +1,7 @@
 import sys
 import socket
 import select
-import pymongo
+#import pymongo
 
 HOST = '' 
 SOCKET_LIST = []
@@ -43,6 +43,8 @@ def chat_server():
                 broadcast(server_socket, reg_socket, sockfd, "[{}:{}] entered our chatting room\n".format(*addr))
             
             elif sock == reg_socket:
+                pass
+                '''
                 sockfd, addr = reg_socket.accept()
                 print("Client ({}, {}) start registration...".format(*addr))
                 uname = sockfd.recv(RECV_BUFFER).decode()
@@ -58,7 +60,7 @@ def chat_server():
                     sockfd.send(bytes("SUCCESSFUL REGISTRATION :)", ENCODING))
                 else:
                     sockfd.send(bytes("REGISTRATION FAILED, INVALID CREDENTIALS :(", ENCODING))
-
+                '''
             # a message from a client, not a new connection
             else:
                 # process data recieved from client, 
