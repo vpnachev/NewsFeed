@@ -2,14 +2,15 @@ import sys
 import socket
 import select
 import pymongo
+from simplecrypt import encrypt,decrypt
 
-HOST = '' 
+HOST = '0.0.0.0'
 SOCKET_LIST = []
 USERNAMES = dict()
 RECV_BUFFER = 4096
 PORT = 54554
 REG_LOG_PORT = 54555
-
+CIPHER = "PASSWORD"
 
 def chat_server():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -26,12 +27,10 @@ def chat_server():
     SOCKET_LIST.append(server_socket)
     SOCKET_LIST.append(reg_socket)
  
-    print"Chat server started on port " + str(PORT)
+    print"Server is available on port:" + str(PORT)
  
     while True:
 
-        # get the list sockets which are ready to be read through select
-        # 4th arg, time_out  = 0 : poll and never block
         ready_to_read, ready_to_write, in_error = select.select(SOCKET_LIST, [], [], 0)
 
         for sock in ready_to_read:
@@ -49,14 +48,17 @@ def chat_server():
                     if cursor.count() != 1:
                         print 'FAILED'
                         sockfd.send("FAILED")
+                        sockfd.close()
+                        SOCKET_LIST.remove(sockfd)
+
                     else:
                         print 'SUCCESS'
                         USERNAMES[addr] = uname
                         sockfd.send("SUCCESS")
-
-                    print "Client {}@{}:{} connected".format(USERNAMES[addr],addr[0], addr[1])
-                    broadcast(server_socket, reg_socket, sockfd, "{}@{}:{} entered our chatting room\n".format(
-                                USERNAMES[addr], addr[0], addr[1]))
+                        print "Client {}@{}:{} connected".format(USERNAMES[addr],addr[0], addr[1])
+                        data = "{}@{}:{} entered our chatting room\n".format(USERNAMES[addr], addr[0], addr[1])
+                        data = encrypt(CIPHER, data)
+                        broadcast(server_socket, reg_socket, sockfd, data)
                 else:
                     print "Client side failed"
 
@@ -84,31 +86,30 @@ def chat_server():
                 else:
                     print "Client side FAILED"
 
-            # a message from a client, not a new connection
+            # message from client
             else:
                 peer = sock.getpeername()
-                # process data recieved from client, 
                 try:
-                    # receiving data from the socket.
                     data = sock.recv(RECV_BUFFER)
                     if data:
-                        # there is something in the socket
-                        #broadcast(server_socket, reg_socket, sock, "\r" + '[' + str(sock.getpeername()) + '] ' + data)
-                        broadcast(server_socket, reg_socket, sock, "\r" + '[' + USERNAMES[peer]+ '@{}:{}] '.format(*peer) + data)
+                        data = decrypt(CIPHER,data)
+                        data = "\r" + '[' + USERNAMES[peer]+ '@{}:{}] '.format(*peer) + data
+                        data = encrypt(CIPHER, data)
+                        broadcast(server_socket, reg_socket, sock, data)
                     else:
-                        # remove the socket that's broken
                         if sock in SOCKET_LIST:
                             SOCKET_LIST.remove(sock)
                             del USERNAMES[peer]
 
-                        # at this stage, no data means probably the connection has been broken
-                        broadcast(server_socket, reg_socket, sock, "Client {}@{}:{} is offline\n".format(
-                                    USERNAMES[peer],addr[0], addr[1]))
+                        data = "Client {}@{}:{} is offline\n".format(USERNAMES[peer],addr[0], addr[1])
+                        data = encrypt(CIPHER, data)
+                        broadcast(server_socket, reg_socket, sock, data)
 
                 # exception 
                 except:
-                    broadcast(server_socket, reg_socket, sock, "Client {}@{}:{} is offline\n".format(
-                                USERNAMES[peer],addr[0], addr[1]))
+                    data = "Client {}@{}:{} is offline\n".format(USERNAMES[peer],addr[0], addr[1])
+                    data = encrypt(CIPHER, data)
+                    broadcast(server_socket, reg_socket, sock, data)
                     continue
 
     server_socket.close()
