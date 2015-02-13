@@ -14,7 +14,8 @@ def crypto(x):
 
 RECV_BUFFER = 4096
 USER = ""
-CIPHER = "PASSWORD"
+CYPHER = "PASSWORD"
+
 
 def login(log_s):
     global USER
@@ -37,10 +38,11 @@ def login(log_s):
     else:
         return False
 
+
 def chat_client():
     global USER
-    if(len(sys.argv) < 0):
-        print 'Usage : python client.py'
+    if len(sys.argv) < 0:
+        print('Usage : python client.py')
         sys.exit()
 
     if len(sys.argv) >= 2:
@@ -51,41 +53,41 @@ def chat_client():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(10)
 
-    try :
+    try:
         s.connect((host, port))
-    except :
-        print 'Unable to connect'
+    except:
+        print('Unable to connect')
         sys.exit()
 
-    if login(s) == False:
-        print "Login failed"
+    if not login(s):
+        print("Login failed")
         sys.exit()
 
-    print 'Connected to remote host. You can start sending messages'
+    print('Connected to remote host. You can start sending messages')
     sys.stdout.write('[{}]: '.format(USER))
     sys.stdout.flush()
      
     while True:
         socket_list = [sys.stdin, s]
-        ready_to_read,ready_to_write,in_error = select.select(socket_list , [], [])
+        ready_to_read, ready_to_write, in_error = select.select(socket_list, [], [])
          
         for sock in ready_to_read:             
             if sock == s:
                 data = sock.recv(RECV_BUFFER)
-                if not data :
-                    print '\nDisconnected from chat server'
+                if not data:
+                    print('\nDisconnected from chat server')
                     sys.exit()
-                else :
-                    #print data
-                    data = decrypt(CIPHER,data)
+                else:
+                    # print data
+                    data = decrypt(CYPHER, data)
                     sys.stdout.write(data)
                     sys.stdout.write('[{}]: '.format(USER))
                     sys.stdout.flush()
             
-            else :
+            else:
                 # user entered a message
                 msg = sys.stdin.readline()
-                msg = encrypt(CIPHER, msg)
+                msg = encrypt(CYPHER, msg)
                 s.send(msg)
                 sys.stdout.write('[{}]: '.format(USER))
                 sys.stdout.flush()
