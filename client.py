@@ -5,6 +5,7 @@ import socket
 import select
 import getpass
 from hashlib import sha256
+from simplecrypt import encrypt, decrypt
 
 
 def crypto(x):
@@ -13,7 +14,7 @@ def crypto(x):
 
 RECV_BUFFER = 4096
 USER = ""
-
+CIPHER = "PASSWORD"
 
 def login(log_s):
     global USER
@@ -42,7 +43,10 @@ def chat_client():
         print 'Usage : python client.py'
         sys.exit()
 
-    host = "127.0.0.1"
+    if len(sys.argv) >= 2:
+        host = sys.argv[1]
+    else:
+        host = "127.0.0.1"
     port = 54554
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(10)
@@ -73,6 +77,7 @@ def chat_client():
                     sys.exit()
                 else :
                     #print data
+                    data = decrypt(CIPHER,data)
                     sys.stdout.write(data)
                     sys.stdout.write('[{}]: '.format(USER))
                     sys.stdout.flush()
@@ -80,6 +85,7 @@ def chat_client():
             else :
                 # user entered a message
                 msg = sys.stdin.readline()
+                msg = encrypt(CIPHER, msg)
                 s.send(msg)
                 sys.stdout.write('[{}]: '.format(USER))
                 sys.stdout.flush()
