@@ -2,7 +2,7 @@ import sys
 import socket
 import select
 import pymongo
-from simplecrypt import encrypt, decrypt
+from simplecrypt import encrypt as encr, decrypt as decr
 
 HOST = '0.0.0.0'
 SOCKET_LIST = []
@@ -11,6 +11,16 @@ RECV_BUFFER = 4096
 PORT = 54554
 REG_LOG_PORT = 54555
 CYPHER = "PASSWORD"
+
+
+def encrypt(CYPHER, data):
+    return data.encode()
+    # return encr(CYPHER, data)
+
+
+def decrypt(CYPHER, data):
+    return data.decode('utf-8')
+    # return decr(CYPHER, data).decode('utf-8')
 
 
 def chat_server():
@@ -39,23 +49,25 @@ def chat_server():
             # login
             if sock == server_socket:
                 sockfd, addr = server_socket.accept()
-                SOCKET_LIST.append(sockfd)
                 buff = sockfd.recv(RECV_BUFFER)
-                if buff != "FAILED":
+                buff = decrypt(CYPHER, buff)
+                if buff != "FAILED" and buff !="":
+                    SOCKET_LIST.append(sockfd)
                     uname, password = buff.split('^')
                     print("login " + uname)
                     users = pymongo.MongoClient().chat.users
                     cursor = users.find({"username": uname, "password": password})
                     if cursor.count() != 1:
                         print('FAILED')
-                        sockfd.send("FAILED")
+                        sockfd.send(encrypt(CYPHER,"FAILED"))
                         sockfd.close()
                         SOCKET_LIST.remove(sockfd)
 
                     else:
                         print('SUCCESS')
                         USERNAMES[addr] = uname
-                        sockfd.send("SUCCESS")
+                        sockfd.send(encrypt(CYPHER,"SUCCESS"))
+                        print(type(USERNAMES[addr]), type(addr[0]), type(addr[1]))
                         print("Client {}@{}:{} connected".format(USERNAMES[addr], addr[0], addr[1]))
                         data = "{}@{}:{} entered our chatting room\n".format(USERNAMES[addr], addr[0], addr[1])
                         data = encrypt(CYPHER, data)
@@ -69,6 +81,7 @@ def chat_server():
                 print("Client ({}, {}) try to reg ...".format(*addr))
 
                 buff = sockfd.recv(RECV_BUFFER)
+                buff = decrypt(CYPHER, buff)
                 if buff != "FAILED":
                     uname, password = buff.split('^')
                     print("register " + " " + uname)
@@ -80,10 +93,10 @@ def chat_server():
                     if cursor.count() == 0:
                         users.insert({"username": uname, "password": password})
                         print('SUCCESS')
-                        sockfd.send("SUCCESS")
+                        sockfd.send(encrypt(CYPHER, "SUCCESS"))
                     else:
                         print('FAILED')
-                        sockfd.send("FAILED")
+                        sockfd.send(encrypt(CYPHER, "FAILED"))
                 else:
                     print("Client side FAILED")
 
@@ -92,33 +105,43 @@ def chat_server():
                 peer = sock.getpeername()
                 try:
                     data = sock.recv(RECV_BUFFER)
+                    print(data)
+                    data = decrypt(CYPHER, data)
                     if data:
-                        data = decrypt(CYPHER, data)
-                        data = "\r" + '[' + USERNAMES[peer] + '@{}:{}] '.format(*peer) + data
+                        if data == "LOG OUT":
+                            print(USERNAMES[peer],"@", addr[0],":", addr[1], " logged out!")
+                            data = "Client {}@{}:{} is offline\n".format(USERNAMES[peer], addr[0], addr[1])
+                            data = encrypt(CYPHER, data)
+                            broadcast(server_socket, reg_socket, sock, data)
+                            if sock in SOCKET_LIST:
+                                SOCKET_LIST.remove(sock)
+                                del USERNAMES[peer]
+                        else:
+                            data = "\r" + '[' + USERNAMES[peer] + '@{}:{}] '.format(*peer) + data
+                            data = encrypt(CYPHER, data)
+                            broadcast(server_socket, reg_socket, sock, data)
+                    else:
+                        print(USERNAMES[peer],"@", addr[0],":", addr[1], " logged out!")
+                        data = "Client {}@{}:{} is offline\n".format(USERNAMES[peer], addr[0], addr[1])
                         data = encrypt(CYPHER, data)
                         broadcast(server_socket, reg_socket, sock, data)
-                    else:
                         if sock in SOCKET_LIST:
                             SOCKET_LIST.remove(sock)
                             del USERNAMES[peer]
 
-                        data = "Client {}@{}:{} is offline\n".format(USERNAMES[peer], addr[0], addr[1])
-                        data = encrypt(CYPHER, data)
-                        broadcast(server_socket, reg_socket, sock, data)
 
                 # exception 
-                except:
-                    data = "Client {}@{}:{} is offline\n".format(USERNAMES[peer], addr[0], addr[1])
-                    data = encrypt(CYPHER, data)
+                except BaseException as e:
+                    print(e, "exception ", USERNAMES[peer], addr[0], addr[1])
                     broadcast(server_socket, reg_socket, sock, data)
                     continue
 
     server_socket.close()
 
 
-# broadcast chat messages to all connected clients
+# broadcast encrypted chat messages to all connected clients
 def broadcast(server_socket, reg_socket, sock, message):
-    print(message)
+    print("broadcasting message ", message)
     for socket in SOCKET_LIST:
         # send the message only to peer
         if socket != server_socket and socket != sock and socket != reg_socket:
@@ -126,11 +149,11 @@ def broadcast(server_socket, reg_socket, sock, message):
                 socket.send(message)
             except:
                 # broken socket connection
-                socket.close()
                 # broken socket, remove it
                 if socket in SOCKET_LIST:
                     SOCKET_LIST.remove(socket)
                     del USERNAMES[socket.getpeername()]
+                socket.close()
  
 if __name__ == "__main__":
     sys.exit(chat_server())

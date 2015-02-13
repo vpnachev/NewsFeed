@@ -4,10 +4,20 @@ import sys
 import socket
 import getpass
 from hashlib import sha256
-
+from simplecrypt import encrypt as encr, decrypt as decr
 
 def crypto(x):
     return str(sha256(x).hexdigest())
+
+CYPHER = "PASSWORD"
+
+def encrypt(CYPHER, data):
+    return data.encode()
+    # return encr(CYPHER, data)
+
+def decrypt(CYPHER, data):
+    return data.decode('utf-8')
+    # return decr(CYPHER, data).decode('utf-8')
 
 RECV_BUFFER = 4096
 
@@ -39,17 +49,18 @@ def register():
     confirm_pass = getpass.getpass("<confirm password>:")
     if init_pass != confirm_pass:
         print("wrong password!")
-        s.send("FAILED")
+        s.send(encrypt(CYPHER, "FAILED"))
         sys.exit()
     if "^" in init_pass:
         print("Not allowed characters in your password")
-        s.send("FAILED")
+        s.send(encrypt(CYPHER, "FAILED"))
         sys.exit()
 
     password = crypto(confirm_pass)
-    s.send(uname + "^" + password)
+    s.send(encrypt(CYPHER, uname + "^" + password))
 
     ans = s.recv(RECV_BUFFER)
+    ans = decrypt(CYPHER, ans)
     s.close()
     if ans == "SUCCESS":
         print("Successful registration of user {}".format(uname))
