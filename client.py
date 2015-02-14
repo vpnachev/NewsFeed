@@ -1,5 +1,6 @@
 # chat_client.py
 
+import time
 import sys
 import socket
 import select
@@ -75,7 +76,6 @@ def chat_client():
 
     socket_list = [sys.stdin, s]
 
-    import time
     try:
         while True:
 

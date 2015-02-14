@@ -1,3 +1,4 @@
+import time
 import sys
 import socket
 import select
@@ -41,7 +42,6 @@ def chat_server():
     print("Server is available on port:" + str(PORT))
  
     while True:
-        import time
         time.sleep(0.01)
 
         ready_to_read, ready_to_write, in_error = select.select(SOCKET_LIST, [], [], 0)
