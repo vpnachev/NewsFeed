@@ -74,9 +74,14 @@ def chat_client():
     sys.stdout.flush()
 
     socket_list = [sys.stdin, s]
+
+    import time
     try:
         while True:
+
+            time.sleep(0.01)
             ready_to_read, ready_to_write, in_error = select.select(socket_list, [], [])
+            time.sleep(0.01)
 
             for sock in ready_to_read:
                 if sock == s:
