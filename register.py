@@ -16,8 +16,8 @@ def encrypt(CYPHER, data):
     # return encr(CYPHER, data)
 
 def decrypt(CYPHER, data):
-    return data.decode('utf-8')
-    # return decr(CYPHER, data).decode('utf-8')
+    return data.decode()
+    # return decr(CYPHER, data).decode()
 
 RECV_BUFFER = 4096
 
@@ -37,8 +37,8 @@ def register():
     except:
         print('Unable to connect')
         sys.exit()
-    print('Connected to server. You can start registration procedure')
 
+    print('Connected to server. You can start registration procedure')
     sys.stdout.write('<username>: ')
     sys.stdout.flush()
     uname = sys.stdin.readline()

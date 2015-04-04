@@ -1,16 +1,11 @@
 # chat_client.py
 
-import time
-import sys
-import socket
-import select
-import getpass
-from hashlib import sha256
+import time, derser, sys, socket, select, getpass
+import hashlib
 from simplecrypt import encrypt as encr, decrypt as decr
 
-
 def crypto(x):
-    return sha256(x.encode()).hexdigest()
+    return hashlib.sha256(x.encode()).hexdigest()
 
 
 RECV_BUFFER = 4096
@@ -22,8 +17,8 @@ def encrypt(CYPHER, data):
     # return encr(CYPHER, data)
 
 def decrypt(CYPHER, data):
-    return data.decode('utf-8')
-    #  return decr(CYPHER, data).decode('utf-8')
+    return data.decode()
+    #  return decr(CYPHER, data).decode()
 
 def login(log_s):
     global USER
@@ -84,6 +79,7 @@ def chat_client():
             time.sleep(0.01)
 
             for sock in ready_to_read:
+                # recieve message from server
                 if sock == s:
                     data = sock.recv(RECV_BUFFER)
                     data = decrypt(CYPHER, data)

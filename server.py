@@ -20,8 +20,8 @@ def encrypt(CYPHER, data):
 
 
 def decrypt(CYPHER, data):
-    return data.decode('utf-8')
-    # return decr(CYPHER, data).decode('utf-8')
+    return data.decode()
+    # return decr(CYPHER, data).decode()
 
 
 def chat_server():
@@ -43,12 +43,10 @@ def chat_server():
  
     while True:
         time.sleep(0.01)
-
         ready_to_read, ready_to_write, in_error = select.select(SOCKET_LIST, [], [], 0)
         time.sleep(0.01)
 
         for sock in ready_to_read:
-
             # login
             if sock == server_socket:
                 sockfd, addr = server_socket.accept()
@@ -108,8 +106,8 @@ def chat_server():
                 peer = sock.getpeername()
                 try:
                     data = sock.recv(RECV_BUFFER)
-                    print(data)
                     data = decrypt(CYPHER, data)
+                    print(data)
                     if data:
                         if data == "LOG OUT":
                             print(USERNAMES[peer],"@", addr[0],":", addr[1], " logged out!")
@@ -144,7 +142,7 @@ def chat_server():
 
 # broadcast encrypted chat messages to all connected clients
 def broadcast(server_socket, reg_socket, sock, message):
-    print("broadcasting message ", message)
+    print("broadcasting message ", message.decode())
     for socket in SOCKET_LIST:
         # send the message only to peer
         if socket != server_socket and socket != sock and socket != reg_socket:
