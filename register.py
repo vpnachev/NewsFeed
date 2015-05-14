@@ -7,7 +7,7 @@ from hashlib import sha256
 from simplecrypt import encrypt as encr, decrypt as decr
 
 def crypto(x):
-    return str(sha256(x).hexdigest())
+    return sha256(x.encode()).hexdigest()
 
 CYPHER = "PASSWORD"
 
