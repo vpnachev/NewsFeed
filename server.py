@@ -3,6 +3,7 @@ import socket
 import select
 import pymongo
 from simplecrypt import encrypt as encr, decrypt as decr
+from libs.encrypt_hash import encrypt, decrypt, crypto
 
 HOST = '0.0.0.0'
 SOCKET_LIST = []
@@ -10,17 +11,7 @@ USERNAMES = dict()
 RECV_BUFFER = 4096
 PORT = 54554
 REG_LOG_PORT = 54555
-CYPHER = "PASSWORD"
 
-
-def encrypt(CYPHER, data):
-    return data.encode()
-    # return encr(CYPHER, data)
-
-
-def decrypt(CYPHER, data):
-    return data.decode('utf-8')
-    # return decr(CYPHER, data).decode('utf-8')
 
 
 def chat_server():
@@ -53,8 +44,8 @@ def chat_server():
             if sock == server_socket:
                 sockfd, addr = server_socket.accept()
                 buff = sockfd.recv(RECV_BUFFER)
-                buff = decrypt(CYPHER, buff)
-                if buff != "FAILED" and buff !="":
+                buff = decrypt(buff)
+                if buff != "FAILED" and buff != "":
                     SOCKET_LIST.append(sockfd)
                     uname, password = buff.split('^')
                     print("login " + uname)
@@ -62,18 +53,18 @@ def chat_server():
                     cursor = users.find({"username": uname, "password": password})
                     if cursor.count() != 1:
                         print('FAILED')
-                        sockfd.send(encrypt(CYPHER,"FAILED"))
+                        sockfd.send(encrypt("FAILED"))
                         sockfd.close()
                         SOCKET_LIST.remove(sockfd)
 
                     else:
                         print('SUCCESS')
                         USERNAMES[addr] = uname
-                        sockfd.send(encrypt(CYPHER,"SUCCESS"))
+                        sockfd.send(encrypt("SUCCESS"))
                         print(type(USERNAMES[addr]), type(addr[0]), type(addr[1]))
                         print("Client {}@{}:{} connected".format(USERNAMES[addr], addr[0], addr[1]))
                         data = "{}@{}:{} entered our chatting room\n".format(USERNAMES[addr], addr[0], addr[1])
-                        data = encrypt(CYPHER, data)
+                        data = encrypt(data)
                         broadcast(server_socket, reg_socket, sockfd, data)
                 else:
                     print("Client side failed")
@@ -84,7 +75,7 @@ def chat_server():
                 print("Client ({}, {}) try to reg ...".format(*addr))
 
                 buff = sockfd.recv(RECV_BUFFER)
-                buff = decrypt(CYPHER, buff)
+                buff = decrypt(buff)
                 if buff != "FAILED":
                     uname, password = buff.split('^')
                     print("register " + " " + uname)
@@ -96,10 +87,10 @@ def chat_server():
                     if cursor.count() == 0:
                         users.insert({"username": uname, "password": password})
                         print('SUCCESS')
-                        sockfd.send(encrypt(CYPHER, "SUCCESS"))
+                        sockfd.send(encrypt("SUCCESS"))
                     else:
                         print('FAILED')
-                        sockfd.send(encrypt(CYPHER, "FAILED"))
+                        sockfd.send(encrypt("FAILED"))
                 else:
                     print("Client side FAILED")
 
@@ -109,29 +100,28 @@ def chat_server():
                 try:
                     data = sock.recv(RECV_BUFFER)
                     print(data)
-                    data = decrypt(CYPHER, data)
+                    data = decrypt(data)
                     if data:
                         if data == "LOG OUT":
-                            print(USERNAMES[peer],"@", addr[0],":", addr[1], " logged out!")
+                            print(USERNAMES[peer], "@", addr[0], ":", addr[1], " logged out!")
                             data = "Client {}@{}:{} is offline\n".format(USERNAMES[peer], addr[0], addr[1])
-                            data = encrypt(CYPHER, data)
+                            data = encrypt(data)
                             broadcast(server_socket, reg_socket, sock, data)
                             if sock in SOCKET_LIST:
                                 SOCKET_LIST.remove(sock)
                                 del USERNAMES[peer]
                         else:
                             data = "\r" + '[' + USERNAMES[peer] + '@{}:{}] '.format(*peer) + data
-                            data = encrypt(CYPHER, data)
+                            data = encrypt(data)
                             broadcast(server_socket, reg_socket, sock, data)
                     else:
-                        print(USERNAMES[peer],"@", addr[0],":", addr[1], " logged out!")
+                        print(USERNAMES[peer], "@", addr[0], ":", addr[1], " logged out!")
                         data = "Client {}@{}:{} is offline\n".format(USERNAMES[peer], addr[0], addr[1])
-                        data = encrypt(CYPHER, data)
+                        data = encrypt(data)
                         broadcast(server_socket, reg_socket, sock, data)
                         if sock in SOCKET_LIST:
                             SOCKET_LIST.remove(sock)
                             del USERNAMES[peer]
-
 
                 # exception 
                 except BaseException as e:
@@ -157,6 +147,41 @@ def broadcast(server_socket, reg_socket, sock, message):
                     SOCKET_LIST.remove(socket)
                     del USERNAMES[socket.getpeername()]
                 socket.close()
- 
+
+
+class Server:
+    def __init__(self, listening_addr='', listening_port=54554):
+        self._server = (listening_addr, listening_port)
+        self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._server_socket.listen(128)
+        self._server_socket.settimeout(60)
+        self._clients = dict()
+
+    def accept(self):
+        sock_fd, addr = self._server_socket.accept()
+        self._clients[addr] = sock_fd
+        return sock_fd, addr
+
+    @classmethod
+    def send(cls, message, sock_fd):
+        transmitted_bytes = sock_fd.send(message)
+        bytes_to_send = len(message)
+        while transmitted_bytes < bytes_to_send:
+            transmitted_bytes += sock_fd.send(message[transmitted_bytes:])
+
+    def send_to_all(self, message, sender):
+        for dest in self._clients:
+            if dest != sender:
+                self.send(message, dest)
+
+    @classmethod
+    def receive(cls, length, sock_fd):
+        return sock_fd.recv(length)
+
+    def run(self):
+        pass
+
+
 if __name__ == "__main__":
     sys.exit(chat_server())

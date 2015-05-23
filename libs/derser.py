@@ -17,10 +17,11 @@ def deserialize(str_arg):
 
 MESSAGE INTERFACE
 {
-    "type": ["REG", "LOGIN", "LOGOUT", "SYNC", "MESG", "LIKE", "BLOCK", "20 MORE", "AVATAR", "RATING"],
+    "type": ["REG", "LOGIN", "LOGOUT", "SYNC", "MESG", "LIKE", "BLOCK", "20 MORE", "AVATAR", "RATING", "FILE"],
     "date": ["15:43:55/14.02.2015]  -> utc time/gmt+00
     "status": ["OK", "FAILED"],
     "username": "login/register username, ",
     "password": "password, used only for authentication and registration",
-    "body": "TEXT"
+    "body": "TEXT"/"content of file"
+    "which part of file" : current_part/all_parts(11/23 - 11 piece of File devided into 23 parts)
 }'''

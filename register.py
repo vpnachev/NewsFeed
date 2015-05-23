@@ -3,21 +3,7 @@
 import sys
 import socket
 import getpass
-from hashlib import sha256
-from simplecrypt import encrypt as encr, decrypt as decr
-
-def crypto(x):
-    return sha256(x.encode()).hexdigest()
-
-CYPHER = "PASSWORD"
-
-def encrypt(CYPHER, data):
-    return data.encode()
-    # return encr(CYPHER, data)
-
-def decrypt(CYPHER, data):
-    return data.decode('utf-8')
-    # return decr(CYPHER, data).decode('utf-8')
+from libs.encrypt_hash import encrypt, decrypt, crypto
 
 RECV_BUFFER = 4096
 
