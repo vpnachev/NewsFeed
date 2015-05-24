@@ -2,8 +2,8 @@ import sys
 import socket
 import select
 import pymongo
-from simplecrypt import encrypt as encr, decrypt as decr
-from libs.encrypt_hash import encrypt, decrypt, crypto
+from libs.encrypt_hash import encrypt, decrypt
+from libs.derser import Message
 
 HOST = '0.0.0.0'
 SOCKET_LIST = []
@@ -11,7 +11,6 @@ USERNAMES = dict()
 RECV_BUFFER = 4096
 PORT = 54554
 REG_LOG_PORT = 54555
-
 
 
 def chat_server():
@@ -165,6 +164,7 @@ class Server:
 
     @classmethod
     def send(cls, message, sock_fd):
+        byte_representation = message.serialize()
         transmitted_bytes = sock_fd.send(message)
         bytes_to_send = len(message)
         while transmitted_bytes < bytes_to_send:
