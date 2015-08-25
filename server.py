@@ -34,7 +34,8 @@ def chat_server():
         import time
         time.sleep(0.01)
 
-        ready_to_read, ready_to_write, in_error = select.select(SOCKET_LIST, [], [], 0)
+        ready_to_read, ready_to_write, in_error = select.select(SOCKET_LIST,
+                                                                [], [], 0)
         time.sleep(0.01)
 
         for sock in ready_to_read:
@@ -49,7 +50,8 @@ def chat_server():
                     uname, password = buff.split('^')
                     print("login " + uname)
                     users = pymongo.MongoClient().chat.users
-                    cursor = users.find({"username": uname, "password": password})
+                    cursor = users.find({"username": uname,
+                                         "password": password})
                     if cursor.count() != 1:
                         print('FAILED')
                         sockfd.send(encrypt("FAILED"))
@@ -60,9 +62,12 @@ def chat_server():
                         print('SUCCESS')
                         USERNAMES[addr] = uname
                         sockfd.send(encrypt("SUCCESS"))
-                        print(type(USERNAMES[addr]), type(addr[0]), type(addr[1]))
-                        print("Client {}@{}:{} connected".format(USERNAMES[addr], addr[0], addr[1]))
-                        data = "{}@{}:{} entered our chatting room\n".format(USERNAMES[addr], addr[0], addr[1])
+                        print(type(USERNAMES[addr]),
+                              type(addr[0]), type(addr[1]))
+                        print("Client {}@{}:{} connected".format(
+                            USERNAMES[addr], addr[0], addr[1]))
+                        data = "{}@{}:{} entered our chatting room\n".format(
+                            USERNAMES[addr], addr[0], addr[1])
                         data = encrypt(data)
                         broadcast(server_socket, reg_socket, sockfd, data)
                 else:
@@ -102,20 +107,25 @@ def chat_server():
                     data = decrypt(data)
                     if data:
                         if data == "LOG OUT":
-                            print(USERNAMES[peer], "@", addr[0], ":", addr[1], " logged out!")
-                            data = "Client {}@{}:{} is offline\n".format(USERNAMES[peer], addr[0], addr[1])
+                            print(USERNAMES[peer], "@", addr[0], ":", addr[1],
+                                  " logged out!")
+                            data = "Client {}@{}:{} is offline\n".\
+                                format(USERNAMES[peer], addr[0], addr[1])
                             data = encrypt(data)
                             broadcast(server_socket, reg_socket, sock, data)
                             if sock in SOCKET_LIST:
                                 SOCKET_LIST.remove(sock)
                                 del USERNAMES[peer]
                         else:
-                            data = "\r" + '[' + USERNAMES[peer] + '@{}:{}] '.format(*peer) + data
+                            data = "\r" + '[' + USERNAMES[peer] + \
+                                   '@{}:{}] '.format(*peer) + data
                             data = encrypt(data)
                             broadcast(server_socket, reg_socket, sock, data)
                     else:
-                        print(USERNAMES[peer], "@", addr[0], ":", addr[1], " logged out!")
-                        data = "Client {}@{}:{} is offline\n".format(USERNAMES[peer], addr[0], addr[1])
+                        print(USERNAMES[peer], "@", addr[0], ":", addr[1],
+                              " logged out!")
+                        data = "Client {}@{}:{} is offline\n".\
+                            format(USERNAMES[peer], addr[0], addr[1])
                         data = encrypt(data)
                         broadcast(server_socket, reg_socket, sock, data)
                         if sock in SOCKET_LIST:
@@ -149,23 +159,28 @@ def broadcast(server_socket, reg_socket, sock, message):
 
 
 class Server:
-    def __init__(self, listening_addr='', listening_port=54554):
-        self._server = (listening_addr, listening_port)
-        self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._server_socket.listen(128)
-        self._server_socket.settimeout(60)
+    def __init__(self, listening_addr='127.0.0.1', listening_port=54554,
+                 reg_port=54555):
+        self._server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._server.bind((listening_addr, listening_port))
+        self._server.listen(128)
+        self._server.settimeout(60)
         self._clients = dict()
 
+        self._reg_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._reg_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._reg_server.bind((listening_addr, reg_port))
+        self._reg_server.listen(8)
+        self._reg_server.settimeout(60)
+
     def accept(self):
-        sock_fd, addr = self._server_socket.accept()
+        sock_fd, addr = self._server.accept()
         self._clients[addr] = sock_fd
         return sock_fd, addr
 
-    @classmethod
-    def send(cls, message, sock_fd):
-        byte_representation = message.serialize()
-        transmitted_bytes = sock_fd.send(message)
+    def send(self, message, sock_fd):
+        transmitted_bytes = 0
         bytes_to_send = len(message)
         while transmitted_bytes < bytes_to_send:
             transmitted_bytes += sock_fd.send(message[transmitted_bytes:])
@@ -175,8 +190,7 @@ class Server:
             if dest != sender:
                 self.send(message, dest)
 
-    @classmethod
-    def receive(cls, length, sock_fd):
+    def receive(self, sock_fd, length=RECV_BUFFER):
         return sock_fd.recv(length)
 
     def run(self):
