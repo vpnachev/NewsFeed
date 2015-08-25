@@ -33,6 +33,7 @@ class Message:
     def __init__(self, username, type_of_message):
         self._base_message = dict(TYPE=type_of_message, USERNAME=username)
         self.set_datetime()
+        self.set_status()
 
     def set_password(self, password):
         """ here password is already hashed with sha256"""

@@ -31,7 +31,7 @@ class Register:
             return False
 
         reg_message = Message(uname, "REGISTER")
-        reg_message.set_password = crypto(confirm_pass)
+        reg_message.set_password(crypto(confirm_pass))
         reg_message.set_status()
 
         if self.connect() is False:
@@ -40,7 +40,7 @@ class Register:
 
         self.send(reg_message.serialize())
         response_msg = Message(uname, "REGISTER")
-        response_msg.deserialize(self.receive(RECV_BUFFER))
+        response_msg.deserialize(self.receive())
         self.close()
         if response_msg.get_status() == "OK":
             print("Successful Registration")
@@ -51,7 +51,7 @@ class Register:
         else:
             pass
 
-    def receive(self, length):
+    def receive(self, length=RECV_BUFFER):
         return self._server_socket.recv(length)
 
     def send(self, message):

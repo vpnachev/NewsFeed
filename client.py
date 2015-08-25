@@ -4,8 +4,8 @@ import sys
 import socket
 import select
 import getpass
-import derser
-from  libs.encrypt_hash import crypto, encrypt, decrypt
+from libs.derser import Message
+from libs.encrypt_hash import crypto, encrypt, decrypt
 
 
 RECV_BUFFER = 4096
@@ -49,7 +49,7 @@ def chat_client():
 
     try:
         s.connect((host, port))
-    except:
+    except OSError:
         print('Unable to connect')
         sys.exit()
 
@@ -68,7 +68,8 @@ def chat_client():
         while True:
 
             time.sleep(0.01)
-            ready_to_read, ready_to_write, in_error = select.select(socket_list, [], [])
+            ready_to_read, ready_to_write, in_error = \
+                select.select(socket_list, [], [])
             time.sleep(0.01)
 
             for sock in ready_to_read:
@@ -100,28 +101,91 @@ def chat_client():
 
 
 class Client:
-    def __init__(self, server_addr, server_port):
+    def __init__(self, server_addr="127.0.0.1", server_port=54554):
         self._server = (server_addr, server_port)
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.settimeout(60)
 
     def connect(self):
-        self._server_socket.connect(self._server)
+        try:
+            self._server_socket.connect(self._server)
+        except OSError as err:
+            print(err)
+            return False
+        return True
 
     def send(self, message):
-        transmitted_bytes = self._server_socket.send(message)
+        transmitted_bytes = 0
         bytes_to_send = len(message)
         while transmitted_bytes < bytes_to_send:
-            transmitted_bytes += self._server_socket.send(message[transmitted_bytes:])
+            transmitted_bytes += \
+                self._server_socket.send(message[transmitted_bytes:])
 
-    def receive(self, length):
+    def receive(self, length=RECV_BUFFER):
         return self._server_socket.recv(length)
 
-    def log_in(self):
+    def log_in(self, username, password):
+        log_in_message = Message(username, "LOGIN")
+        log_in_message.set_password(password)
+
+        self.send(log_in_message.serialize())
+        response = Message(username, "LOGIN")
+        response.deserialize(self.receive())
+        if response.get_status() == "OK":
+            self.username = username
+            return True
+        print(response.get_body())
+        return False
+
+
+    def log_out(self):
+        log_out_message = Message(self.username, "LOGOUT")
+        self.send(log_out_message.serialize())
+        self._server_socket.close()
+
+    def like(self, message_timestamp, owner):
         pass
+
+    def block_user(self, user_to_block):
+        block_message = Message(self.username, "BLOCK")
+        block_message.set_body(user_to_block)
+        self.send(block_message.serialize())
+
+    def unblock_user(self, user_to_unblock):
+        unblock_message = Message(self.username, "UNBLOCK")
+        unblock_message.set_body(user_to_unblock)
+        self.send(unblock_message.serialize())
+
+    def load20_more_messages(self, oldest_message):
+        pass
+
+    def send_message(self, body):
+        mess = Message(self.username, "MESSAGE")
+        mess.set_body(body)
+        self.send(mess.serialize())
 
     def run(self):
         pass
+        '''
+        if self.connect() is False:
+            print("Conncetion problems ...")
+            return
+
+        if self.log_in() is False:
+            print("Login problems")
+            return
+
+        self.socket_list = [sys.stdin, self._server_socket]
+        while True:
+            ready_to_read, ready_to_write, in_error = \
+                select.select(self.socket_list, [], [])
+            for sock in ready_to_read:
+                if sock == sys.stdin:
+                    pass
+                else:
+                    pass
+        '''
+
 
 
 if __name__ == "__main__":

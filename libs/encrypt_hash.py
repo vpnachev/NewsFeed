@@ -1,6 +1,7 @@
-''' This is simple wrapper library for encryption and decryption of strings
+"""
+    This is simple wrapper library for encryption and decryption of strings
     It also provides hashing method for passwords(sha256)
-'''
+"""
 
 from hashlib import sha256
 from simplecrypt import encrypt as encr, decrypt as decr
@@ -13,10 +14,10 @@ def crypto(x):
 
 
 def encrypt(data, cypher=CYPHER):
-    #return data.encode()
+    # return data.encode()
     return encr(cypher, data)
 
 
 def decrypt(data, cypher=CYPHER):
-    #return data.decode('utf-8')
+    # return data.decode('utf-8')
     return decr(cypher, data).decode('utf-8')
