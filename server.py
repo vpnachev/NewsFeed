@@ -1,4 +1,3 @@
-import sys
 import socket
 import select
 import pymongo
@@ -193,15 +192,14 @@ class Server:
     def accept_registration(self):
         reg_sock, addr = self._reg_server.accept()
         self.register(reg_sock)
+        reg_sock.close()
 
-    def register(self, socket):
+    def register(self, sock):
         register_mess = Message("", "")
-        register_mess.deserialize(self.receive(socket))
+        register_mess.deserialize(self.receive(sock))
 
         if register_mess.get_type() != "REGISTER":
-            socket.close()
             return False
-
         username = register_mess.get_username()
         password = register_mess.get_password()
         response = Message(username, "REGISTER")
@@ -212,8 +210,7 @@ class Server:
             response.set_status("FAILED")
             response.set_body("DB server is not working,"
                               " The registration is not possible!")
-            self.send(response, socket)
-            socket.close()
+            self.send(response, sock)
             return False
 
         users = self.db_client.chat.users
@@ -223,13 +220,11 @@ class Server:
             response.set_status("FAILED")
             response.set_body(
                 "There is already registered user {}".format(username))
-            self.send(response, socket)
-            socket.close()
+            self.send(response, sock)
             return False
 
         users.insert({"username": username, "password": password})
-        self.send(response, socket)
-        socket.close()
+        self.send(response, sock)
         return True
 
     def log_in(self, sock_fd, addr):
@@ -256,10 +251,14 @@ class Server:
         if cursor.count() == 0:
             response.set_status("FAILED")
             response.set_body("There is no registered {} user".format(username))
+            self.send(response, sock_fd)
+            return False
+
         elif cursor.count() != 1:
             response.set_status("FAILED")
             response.set_body("There is some problems with the server. "
                               "Check the DataBase for more information")
+            self.send(response, sock_fd)
 
         else:
             body = "{}@{}:{} entered our chatting room\n".format(
@@ -274,9 +273,7 @@ class Server:
 
     def send(self, message, sock_fd):
         transmitted_bytes = 0
-        print(message._base_message)
         message = message.serialize().encode()
-
         bytes_to_send = len(message)
         while transmitted_bytes < bytes_to_send:
             transmitted_bytes += sock_fd.send(message[transmitted_bytes:])
@@ -286,28 +283,29 @@ class Server:
             if dest not in except_list:
                 self.send(message, dest)
 
-    def handle_message(self, socket):
+    def handle_message(self, sock):
         message = Message("", "")
-        message.deserialize(self.receive(socket))
+        message.deserialize(self.receive(sock))
 
         message_type = message.get_type()
         if message_type == "MESSAGE":
-            self.broadcast_message(socket, message)
+            self.broadcast_message(sock, message)
         elif message_type == "LOGOUT":
-            self.log_out(socket)
+            self.log_out(sock)
         else:
             pass
 
-    def log_out(self, socket):
-        notification = Message(self._clients[socket][0], "MESSAGE")
-        notification.set_body("User {} have left the room".format(
-            self._clients[socket][0]))
-        self.send_to_all_except(notification, [socket])
-        del self._clients[socket]
+    def log_out(self, sock):
+        notification = Message(self._clients[sock][0], "MESSAGE")
+        notification.set_body("User {}@{}:{} have left the room\n".format(
+            self._clients[sock][0], self._clients[sock][1][0],
+            self._clients[sock][1][1]))
+        self.send_to_all_except(notification, [sock])
+        del self._clients[sock]
 
     def broadcast_message(self, sender, message):
-        db_messages = pymongo.MongoClient().chat.messages
-        db_messages.insert(message._base_message.copy())
+        users = self.db_client.chat.messages
+        users.insert(message._base_message.copy())
         self.send_to_all_except(message, [sender])
 
     def receive(self, sock_fd, length=RECV_BUFFER):
@@ -320,29 +318,22 @@ class Server:
                 # login
                 if sock == self._server:
                     self.accept_client()
-
                 # register
                 elif sock == self._reg_server:
                     self.accept_registration()
-
                 # message
                 else:
                     self.handle_message(sock)
 
-
-
     def ready_sockets(self):
-        return select.select([x for x in self._clients]+
+        return select.select([x for x in self._clients] +
                              [self._reg_server, self._server], [], [])[0]
+
 
 def run():
     server = Server()
     server.connect_to_db()
     server.run()
-
-
-
-
 
 
 if __name__ == "__main__":

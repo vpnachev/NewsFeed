@@ -122,7 +122,6 @@ if __name__ == "__main__":
     # sys.exit(register())
     client = Register()
     if client.register():
-        print("SuccessSSSSSSSSSSSSSSSSSSS")
+        print("Success")
     else:
-        print("adjnasjdknasodijnasmd asoidj aps")
-
+        print("Failed")

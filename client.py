@@ -180,9 +180,13 @@ class Client:
 
     def handle_message(self, message):
         if message.get_type() == "MESSAGE":
-            text = "[{}] {}\n".format(message.get_username(), message.get_body())
+            text = "\n[{}]:{} ".format(message.get_username(),
+                                       message.get_body())
             sys.stdout.write(text)
             sys.stdout.flush()
+            sys.stdout.write("[{}]:".format(self.username))
+            sys.stdout.flush()
+
         else:
             pass
 
@@ -213,7 +217,7 @@ class Client:
                 else:
                     recv_message = Message("", "")
                     x = self.receive()
-                    print(x)
+                    # print(x)
                     recv_message.deserialize(x)
                     self.handle_message(recv_message)
 
@@ -225,7 +229,6 @@ def run():
     except KeyboardInterrupt:
         client.log_out()
         return
-
 
 
 if __name__ == "__main__":
