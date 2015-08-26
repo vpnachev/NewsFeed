@@ -4,6 +4,7 @@ import select
 import pymongo
 from libs.encrypt_hash import encrypt, decrypt
 from libs.derser import Message
+import time
 
 HOST = '0.0.0.0'
 SOCKET_LIST = []
@@ -160,7 +161,7 @@ def broadcast(server_socket, reg_socket, sock, message):
 
 class Server:
     def __init__(self, listening_addr='127.0.0.1', listening_port=54554,
-                 reg_port=54555):
+                 reg_port=54555, db_addr="127.0.0.1", db_port=27017):
         self._server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._server.bind((listening_addr, listening_port))
@@ -174,9 +175,20 @@ class Server:
         self._reg_server.listen(8)
         self._reg_server.settimeout(60)
 
+        self.db_addr = db_addr
+        self.db_port = db_port
+        self.db_client = None
+
+    def connect_to_db(self):
+        if self.db_client:
+            self.db_client.close()
+        self.db_client = pymongo.MongoClient(self.db_addr, self.db_port)
+        time.sleep(2)
+
     def accept_client(self):
         sock_fd, addr = self._server.accept()
-        self.log_in(sock_fd, addr)
+        if not self.log_in(sock_fd, addr):
+            sock_fd.close()
 
     def accept_registration(self):
         reg_sock, addr = self._reg_server.accept()
@@ -192,10 +204,21 @@ class Server:
 
         username = register_mess.get_username()
         password = register_mess.get_password()
-
-        users = pymongo.MongoClient().chat.users
-        cursor = users.find({"username": username})
         response = Message(username, "REGISTER")
+
+        if not self.db_client.address:
+            self.connect_to_db()
+        if not self.db_client.address:
+            response.set_status("FAILED")
+            response.set_body("DB server is not working,"
+                              " The registration is not possible!")
+            self.send(response, socket)
+            socket.close()
+            return False
+
+        users = self.db_client.chat.users
+        cursor = users.find({"username": username})
+
         if cursor.count() > 0:
             response.set_status("FAILED")
             response.set_body(
@@ -217,10 +240,19 @@ class Server:
 
         username = login_mess.get_username()
         password = login_mess.get_password()
-
-        users = pymongo.MongoClient().chat.users
-        cursor = users.find({"username": username, "password": password})
         response = Message(username, "LOGIN")
+        if not self.db_client.address:
+            self.connect_to_db()
+        if not self.db_client.address:
+            print("Mongo DB Server is not working")
+            response.set_status("FAILED")
+            response.set_body("DB server is not working")
+            self.send(response, sock_fd)
+            return False
+
+        users = self.db_client.chat.users
+        cursor = users.find({"username": username, "password": password})
+
         if cursor.count() == 0:
             response.set_status("FAILED")
             response.set_body("There is no registered {} user".format(username))
@@ -238,6 +270,7 @@ class Server:
             response.set_type("MESSAGE")
             self.send_to_all_except(response, [])
             self._clients[sock_fd] = (username, addr)
+            return True
 
     def send(self, message, sock_fd):
         transmitted_bytes = 0
@@ -304,6 +337,7 @@ class Server:
 
 def run():
     server = Server()
+    server.connect_to_db()
     server.run()
 
 
