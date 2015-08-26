@@ -174,28 +174,143 @@ class Server:
         self._reg_server.listen(8)
         self._reg_server.settimeout(60)
 
-    def accept(self):
+    def accept_client(self):
         sock_fd, addr = self._server.accept()
-        self._clients[addr] = sock_fd
-        return sock_fd, addr
+        self.log_in(sock_fd, addr)
+
+    def accept_registration(self):
+        reg_sock, addr = self._reg_server.accept()
+        self.register(reg_sock)
+
+    def register(self, socket):
+        register_mess = Message("", "")
+        register_mess.deserialize(self.receive(socket))
+
+        if register_mess.get_type() != "REGISTER":
+            socket.close()
+            return False
+
+        username = register_mess.get_username()
+        password = register_mess.get_password()
+
+        users = pymongo.MongoClient().chat.users
+        cursor = users.find({"username": username})
+        response = Message(username, "REGISTER")
+        if cursor.count() > 0:
+            response.set_status("FAILED")
+            response.set_body(
+                "There is already registered user {}".format(username))
+            self.send(response, socket)
+            socket.close()
+            return False
+
+        users.insert({"username": username, "password": password})
+        self.send(response, socket)
+        socket.close()
+        return True
+
+    def log_in(self, sock_fd, addr):
+        login_mess = Message("", "")
+        login_mess.deserialize(self.receive(sock_fd))
+        if login_mess.get_type() != "LOGIN":
+            return False
+
+        username = login_mess.get_username()
+        password = login_mess.get_password()
+
+        users = pymongo.MongoClient().chat.users
+        cursor = users.find({"username": username, "password": password})
+        response = Message(username, "LOGIN")
+        if cursor.count() == 0:
+            response.set_status("FAILED")
+            response.set_body("There is no registered {} user".format(username))
+        elif cursor.count() != 1:
+            response.set_status("FAILED")
+            response.set_body("There is some problems with the server. "
+                              "Check the DataBase for more information")
+
+        else:
+            body = "{}@{}:{} entered our chatting room\n".format(
+                username, addr[0], addr[1])
+            print(body.format(username, addr[0], addr[1]))
+            response.set_body(body)
+            self.send(response, sock_fd)
+            response.set_type("MESSAGE")
+            self.send_to_all_except(response, [])
+            self._clients[sock_fd] = (username, addr)
 
     def send(self, message, sock_fd):
         transmitted_bytes = 0
+        print(message._base_message)
+        message = message.serialize().encode()
+
         bytes_to_send = len(message)
         while transmitted_bytes < bytes_to_send:
             transmitted_bytes += sock_fd.send(message[transmitted_bytes:])
 
-    def send_to_all(self, message, sender):
+    def send_to_all_except(self, message, except_list):
         for dest in self._clients:
-            if dest != sender:
+            if dest not in except_list:
                 self.send(message, dest)
 
+    def handle_message(self, socket):
+        message = Message("", "")
+        message.deserialize(self.receive(socket))
+
+        message_type = message.get_type()
+        if message_type == "MESSAGE":
+            self.broadcast_message(socket, message)
+        elif message_type == "LOGOUT":
+            self.log_out(socket)
+        else:
+            pass
+
+    def log_out(self, socket):
+        notification = Message(self._clients[socket][0], "MESSAGE")
+        notification.set_body("User {} have left the room".format(
+            self._clients[socket][0]))
+        self.send_to_all_except(notification, [socket])
+        del self._clients[socket]
+
+    def broadcast_message(self, sender, message):
+        db_messages = pymongo.MongoClient().chat.messages
+        db_messages.insert(message._base_message.copy())
+        self.send_to_all_except(message, [sender])
+
     def receive(self, sock_fd, length=RECV_BUFFER):
-        return sock_fd.recv(length)
+        return sock_fd.recv(length).decode()
 
     def run(self):
-        pass
+        while True:
+            ready_socks = self.ready_sockets()
+            for sock in ready_socks:
+                # login
+                if sock == self._server:
+                    self.accept_client()
+
+                # register
+                elif sock == self._reg_server:
+                    self.accept_registration()
+
+                # message
+                else:
+                    self.handle_message(sock)
+
+
+
+    def ready_sockets(self):
+        return select.select([x for x in self._clients]+
+                             [self._reg_server, self._server], [], [])[0]
+
+def run():
+    server = Server()
+    server.run()
+
+
+
+
 
 
 if __name__ == "__main__":
-    sys.exit(chat_server())
+    run()
+    # sys.exit(chat_server())

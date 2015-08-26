@@ -118,6 +118,7 @@ class Client:
         self._server = (server_addr, server_port)
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.settimeout(60)
+        self.username = None
 
     def connect(self):
         try:
@@ -127,7 +128,8 @@ class Client:
             return False
         return True
 
-    def send(self, message):
+    def __send(self, message):
+        message = message.encode()
         transmitted_bytes = 0
         bytes_to_send = len(message)
         while transmitted_bytes < bytes_to_send:
@@ -135,13 +137,13 @@ class Client:
                 self._server_socket.send(message[transmitted_bytes:])
 
     def receive(self, length=RECV_BUFFER):
-        return self._server_socket.recv(length)
+        return self._server_socket.recv(length).decode()
 
     def log_in(self, username, password):
         log_in_message = Message(username, "LOGIN")
         log_in_message.set_password(password)
 
-        self.send(log_in_message.serialize())
+        self.__send(log_in_message.serialize())
         response = Message(username, "LOGIN")
         response.deserialize(self.receive())
         if response.get_status() == "OK":
@@ -150,10 +152,9 @@ class Client:
         print(response.get_body())
         return False
 
-
     def log_out(self):
         log_out_message = Message(self.username, "LOGOUT")
-        self.send(log_out_message.serialize())
+        self.__send(log_out_message.serialize())
         self._server_socket.close()
 
     def like(self, message_timestamp, owner):
@@ -162,12 +163,12 @@ class Client:
     def block_user(self, user_to_block):
         block_message = Message(self.username, "BLOCK")
         block_message.set_body(user_to_block)
-        self.send(block_message.serialize())
+        self.__send(block_message.serialize())
 
     def unblock_user(self, user_to_unblock):
         unblock_message = Message(self.username, "UNBLOCK")
         unblock_message.set_body(user_to_unblock)
-        self.send(unblock_message.serialize())
+        self.__send(unblock_message.serialize())
 
     def load20_more_messages(self, oldest_message):
         pass
@@ -175,31 +176,58 @@ class Client:
     def send_message(self, body):
         mess = Message(self.username, "MESSAGE")
         mess.set_body(body)
-        self.send(mess.serialize())
+        self.__send(mess.serialize())
+
+    def handle_message(self, message):
+        if message.get_type() == "MESSAGE":
+            text = "[{}] {}\n".format(message.get_username(), message.get_body())
+            sys.stdout.write(text)
+            sys.stdout.flush()
+        else:
+            pass
 
     def run(self):
-        pass
-        '''
-        if self.connect() is False:
-            print("Conncetion problems ...")
+        if not self.connect():
             return
 
-        if self.log_in() is False:
-            print("Login problems")
+        sys.stdout.write("<username>: ")
+        sys.stdout.flush()
+        self.username = sys.stdin.readline().split("\n")[0]
+        password = getpass.getpass("<password>:")
+        password = crypto(password)
+        if not self.log_in(self.username, password):
             return
 
-        self.socket_list = [sys.stdin, self._server_socket]
+        del password
+        sys.stdout.write('[{}]: '.format(self.username))
+        sys.stdout.flush()
         while True:
-            ready_to_read, ready_to_write, in_error = \
-                select.select(self.socket_list, [], [])
-            for sock in ready_to_read:
+            ready_socks = select.select(
+                [sys.stdin, self._server_socket], [], [])[0]
+            for sock in ready_socks:
                 if sock == sys.stdin:
-                    pass
+                    body = sys.stdin.readline()
+                    self.send_message(body)
+                    sys.stdout.write('[{}]: '.format(self.username))
+                    sys.stdout.flush()
                 else:
-                    pass
-        '''
+                    recv_message = Message("", "")
+                    x = self.receive()
+                    print(x)
+                    recv_message.deserialize(x)
+                    self.handle_message(recv_message)
+
+
+def run():
+    client = Client()
+    try:
+        client.run()
+    except KeyboardInterrupt:
+        client.log_out()
+        return
 
 
 
 if __name__ == "__main__":
-    sys.exit(chat_client())
+    # s ys.exit(chat_client())
+    run()

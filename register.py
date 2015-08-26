@@ -32,7 +32,6 @@ class Register:
 
         reg_message = Message(uname, "REGISTER")
         reg_message.set_password(crypto(confirm_pass))
-        reg_message.set_status()
 
         if self.connect() is False:
             print("Connection problems")
@@ -52,10 +51,11 @@ class Register:
             pass
 
     def receive(self, length=RECV_BUFFER):
-        return self._server_socket.recv(length)
+        return self._server_socket.recv(length).decode()
 
     def send(self, message):
-        transmitted_bytes = self._server_socket.send(message)
+        transmitted_bytes = 0
+        message = message.encode()
         bytes_to_send = len(message)
         while transmitted_bytes < bytes_to_send:
             transmitted_bytes += \
