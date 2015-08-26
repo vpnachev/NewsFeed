@@ -101,6 +101,19 @@ def chat_client():
 
 
 class Client:
+    """
+    This object represents one client it the chat room.
+    It is created with the address and port of the server, as the address
+    is passed as string, while the port as number.
+    The default server is working on 127.0.0.1:54554
+    Also, you can specify only the address and use the default port
+    Example:
+    cl = Client("10.11.12.13", 12345)
+    Here the cl will expect working server on 10.11.12.13:12345
+
+    cl_def_port = Client("100.101.102.103")
+    Here the cl_def_port will expect working server on 100.101.102.103:54554
+    """
     def __init__(self, server_addr="127.0.0.1", server_port=54554):
         self._server = (server_addr, server_port)
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
