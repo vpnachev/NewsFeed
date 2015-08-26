@@ -4,6 +4,8 @@ This is simple serialize/deserialize lib/
 It convert builtin.dict to stringed json -> serialize
 and vice versa
 stringed json do dict -> deserialize
+
+This module includes and Message interface
 """
 from json import dumps, loads
 import time
