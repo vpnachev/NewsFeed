@@ -21,6 +21,8 @@ class Server:
         self._server.settimeout(60)
         self._clients = dict()
 
+        print("SERVER is available on host {}:{}".
+              format(listening_addr, listening_port))
         self._reg_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._reg_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._reg_server.bind((listening_addr, reg_port))
@@ -76,7 +78,8 @@ class Server:
             self.send(response, sock)
             return False
 
-        users.insert({"username": username, "password": password})
+        users.insert({"username": username, "password": password,
+                      "likes": 0, "blocks": 0, "blocked_users": []})
         self.send(response, sock)
         return True
 
@@ -146,6 +149,26 @@ class Server:
             self.broadcast_message(sock, message)
         elif message_type == "LOGOUT":
             self.log_out(sock)
+        elif message_type == "LIKE":
+            owner = message.get_body()
+            users = self.db_client.chat.users
+            users.update_one({"username": owner}, {"$inc":{"likes": 1}})
+        elif message_type == "BLOCK":
+            user_to_block = message.get_body()
+            user = message.get_username()
+            users = self.db_client.chat.users
+            users.update_one({"username": user_to_block},
+                             {"$inc": {"blocks": 1}})
+            users.update_one({"username": user},
+                             {"$push":{"blocked_users": user_to_block}})
+        elif message_type == "UNBLOCK":
+            user = message.get_username()
+            user_to_unblock = message.get_body()
+            users = self.db_client.chat.users
+            users.update_one({"username": user_to_unblock},
+                             {"$inc":{"blocks": -1}})
+            users.update_one({"username": user},
+                             {"$pull": {"blocked_users": user_to_unblock}})
         else:
             pass
 
@@ -186,12 +209,22 @@ class Server:
                              [self._reg_server, self._server], [], [])[0]
 
 
-def run():
-    server = Server()
+def run(host, port, reg_port):
+    server = Server(host, port, reg_port)
     server.connect_to_db()
     server.run()
 
 
 if __name__ == "__main__":
-    run()
+    host = HOST
+    port = PORT
+    reg_port = REG_LOG_PORT
+    if len(sys.argv) > 1:
+        host = sys.argv[1]
+    if len(sys.argv) > 2:
+        port = int(sys.argv[2])
+    if len(sys.argv) > 3:
+        reg_port = int(sys.argv[3])
+
+    run(host, port, reg_port)
     # sys.exit(chat_server())

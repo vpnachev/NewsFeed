@@ -68,8 +68,10 @@ class Client:
         self.__send(log_out_message.serialize())
         self._server_socket.close()
 
-    def like(self, message_timestamp, owner):
-        pass
+    def like(self, owner):
+        message = Message(self.username, "LIKE")
+        message.set_body(owner)
+        self.__send(message.serialize())
 
     def block_user(self, user_to_block):
         block_message = Message(self.username, "BLOCK")
