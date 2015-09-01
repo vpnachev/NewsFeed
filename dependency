@@ -1,6 +1,9 @@
-SimpleCrypt 
-Pycrypto
-python[3]-dev[el]
+zypper install gcc gcc-c++
+zypper install python3-devel  	#Python3 headers needed by pycrypto
+pip install pycrypto 		# Pycrypto
+pip install simple-crypt 	# SimpleCrypt
 pymongo
 mongodb
-
+libqt4-devel(zypper install)
+sip(downlaod from riverbank)
+pyqt4(download from riverbank){maybe zypper install python3-qt4[-devel]}
