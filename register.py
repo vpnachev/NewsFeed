@@ -72,6 +72,13 @@ class Register:
     def close(self):
         self._server_socket.close()
 
+    def set_server(self, host, port):
+        """
+        :param host: Hostname or IP of server as string
+        :param port: Listening port of server as integer
+        """
+        self._server = (host, port)
+
 
 if __name__ == "__main__":
     # sys.exit(register())
