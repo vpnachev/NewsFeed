@@ -15,47 +15,40 @@ class Register:
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.settimeout(60)
 
-    def register(self):
-        # get new username
-        sys.stdout.write('<username>: ')
-        sys.stdout.flush()
-        uname = sys.stdin.readline()
-        uname = uname.split('\n')[0]
-
-        # get password
-        init_pass = getpass.getpass("<password>:")
-        confirm_pass = getpass.getpass("<confirm password>:")
-        if init_pass != confirm_pass:
-            sys.stdout.write("wrong password!")
-            sys.stdout.flush()
-            return False
-
+    def register(self, username, password):
+        '''
+        :param username: username as string
+        :param password: sha256 hash of password
+        :return: True on successful registration, False otherwise
+        '''
         reg_message = Message(uname, "REGISTER")
-        reg_message.set_password(crypto(confirm_pass))
+        reg_message.set_password(password)
 
         if self.connect() is False:
             print("Connection problems")
             return False
 
-        self.send(reg_message.serialize())
-        response_msg = Message(uname, "REGISTER")
-        response_msg.deserialize(self.receive())
+        self.send(reg_message)
+        response_msg = self.receive()
         self.close()
+        if response_msg.get_type() != "REGISTER":
+            print("Non REGISTER message was sent from server")
+            return False
         if response_msg.get_status() == "OK":
             print("Successful Registration")
             return True
         elif response_msg.get_status() == "FAILED":
             print(response_msg.get_body())
             return False
-        else:
-            pass
 
     def receive(self, length=RECV_BUFFER):
-        return self._server_socket.recv(length).decode()
+        m = Message("", "")
+        m.deserialize(self._server_socket.recv(length).decode())
+        return m
 
     def send(self, message):
         transmitted_bytes = 0
-        message = message.encode()
+        message = message.serialize().encode()
         bytes_to_send = len(message)
         while transmitted_bytes < bytes_to_send:
             transmitted_bytes += \
@@ -83,7 +76,22 @@ class Register:
 if __name__ == "__main__":
     # sys.exit(register())
     client = Register()
-    if client.register():
+    # get new username
+    sys.stdout.write('<username>: ')
+    sys.stdout.flush()
+    uname = sys.stdin.readline()
+    uname = uname.split('\n')[0]
+
+    # get password
+    init_pass = getpass.getpass("<password>:")
+    confirm_pass = getpass.getpass("<confirm password>:")
+    if init_pass != confirm_pass:
+        sys.stdout.write("wrong password!")
+        sys.stdout.flush()
+        sys.exit(2)
+
+    init_pass = crypto(init_pass)
+    if client.register(uname, init_pass):
         print("Success")
     else:
         print("Failed")
