@@ -80,7 +80,10 @@ class Server:
 
         users.insert({"username": username, "password": password,
                       "likes": 0, "blocks": 0, "blocked_users": []})
+        response.set_body("Success")
+        response.set_status()
         self.send(response, sock)
+        time.sleep(1)
         return True
 
     def log_in(self, sock_fd, addr):

@@ -21,25 +21,27 @@ class Register:
         :param password: sha256 hash of password
         :return: True on successful registration, False otherwise
         '''
-        reg_message = Message(uname, "REGISTER")
+        reg_message = Message(username, "REGISTER")
         reg_message.set_password(password)
-
-        if self.connect() is False:
+        response_msg = Message(username, "REGISTER")
+        if self.connect() == False:
             print("Connection problems")
-            return False
+            response_msg.set_body("Connection problems")
+            response_msg.set_status("FAILED")
+            return False, response_msg
 
         self.send(reg_message)
         response_msg = self.receive()
         self.close()
         if response_msg.get_type() != "REGISTER":
             print("Non REGISTER message was sent from server")
-            return False
+            return False, response_msg
         if response_msg.get_status() == "OK":
             print("Successful Registration")
-            return True
+            return (True, response_msg)
         elif response_msg.get_status() == "FAILED":
             print(response_msg.get_body())
-            return False
+            return False, response_msg
 
     def receive(self, length=RECV_BUFFER):
         m = Message("", "")
