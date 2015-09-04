@@ -39,8 +39,8 @@ class Client:
             return False
         return True
 
-    def __send(self, message):
-        message = message.encode()
+    def send(self, message):
+        message = message.serialize().encode()
         transmitted_bytes = 0
         bytes_to_send = len(message)
         while transmitted_bytes < bytes_to_send:
@@ -48,15 +48,16 @@ class Client:
                 self._server_socket.send(message[transmitted_bytes:])
 
     def receive(self, length=RECV_BUFFER):
-        return self._server_socket.recv(length).decode()
+        m = Message("", "")
+        m.deserialize(self._server_socket.recv(length).decode())
+        return m
 
     def log_in(self, username, password):
         log_in_message = Message(username, "LOGIN")
         log_in_message.set_password(password)
 
-        self.__send(log_in_message.serialize())
-        response = Message(username, "LOGIN")
-        response.deserialize(self.receive())
+        self.send(log_in_message)
+        response = self.receive()
         if response.get_status() == "OK":
             self.username = username
             return True
@@ -65,23 +66,23 @@ class Client:
 
     def log_out(self):
         log_out_message = Message(self.username, "LOGOUT")
-        self.__send(log_out_message.serialize())
+        self.send(log_out_message)
         self._server_socket.close()
 
     def like(self, owner):
         message = Message(self.username, "LIKE")
         message.set_body(owner)
-        self.__send(message.serialize())
+        self.send(message)
 
     def block_user(self, user_to_block):
         block_message = Message(self.username, "BLOCK")
         block_message.set_body(user_to_block)
-        self.__send(block_message.serialize())
+        self.send(block_message)
 
     def unblock_user(self, user_to_unblock):
         unblock_message = Message(self.username, "UNBLOCK")
         unblock_message.set_body(user_to_unblock)
-        self.__send(unblock_message.serialize())
+        self.send(unblock_message)
 
     def load20_more_messages(self, oldest_message):
         pass
@@ -89,7 +90,7 @@ class Client:
     def send_message(self, body):
         mess = Message(self.username, "MESSAGE")
         mess.set_body(body)
-        self.__send(mess.serialize())
+        self.send(mess)
 
     def handle_message(self, message):
         if message.get_type() == "MESSAGE":
@@ -127,10 +128,7 @@ class Client:
                     sys.stdout.write('[{}]: '.format(self.username))
                     sys.stdout.flush()
                 else:
-                    recv_message = Message("", "")
-                    x = self.receive()
-                    # print(x)
-                    recv_message.deserialize(x)
+                    recv_message = self.receive()
                     self.handle_message(recv_message)
 
 

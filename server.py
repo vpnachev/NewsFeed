@@ -37,7 +37,12 @@ class Server:
         if self.db_client:
             self.db_client.close()
         self.db_client = pymongo.MongoClient(self.db_addr, self.db_port)
-        time.sleep(2)
+        time.sleep(1)
+
+    def is_connected_to_db(self):
+        if not self.db_client.address:
+            self.connect_to_db()
+        return self.db_client.address is not None
 
     def accept_client(self):
         sock_fd, addr = self._server.accept()
@@ -50,8 +55,7 @@ class Server:
         reg_sock.close()
 
     def register(self, sock):
-        register_mess = Message("", "")
-        register_mess.deserialize(self.receive(sock))
+        register_mess = self.receive(sock)
 
         if register_mess.get_type() != "REGISTER":
             return False
@@ -59,9 +63,8 @@ class Server:
         password = register_mess.get_password()
         response = Message(username, "REGISTER")
 
-        if not self.db_client.address:
-            self.connect_to_db()
-        if not self.db_client.address:
+        if not self.is_connected_to_db():
+            print("There is no connection to MongoDB server")
             response.set_status("FAILED")
             response.set_body("DB server is not working,"
                               " The registration is not possible!")
@@ -87,18 +90,16 @@ class Server:
         return True
 
     def log_in(self, sock_fd, addr):
-        login_mess = Message("", "")
-        login_mess.deserialize(self.receive(sock_fd))
+        login_mess = self.receive(sock_fd)
         if login_mess.get_type() != "LOGIN":
             return False
 
         username = login_mess.get_username()
         password = login_mess.get_password()
         response = Message(username, "LOGIN")
-        if not self.db_client.address:
-            self.connect_to_db()
-        if not self.db_client.address:
-            print("Mongo DB Server is not working")
+
+        if not self.is_connected_to_db():
+            print("There is no connection to MongoDB server")
             response.set_status("FAILED")
             response.set_body("DB server is not working")
             self.send(response, sock_fd)
@@ -109,14 +110,15 @@ class Server:
 
         if cursor.count() == 0:
             response.set_status("FAILED")
-            response.set_body("There is no registered {} user".format(username))
+            response.set_body(
+                "There is no registered {} user".format(username))
             self.send(response, sock_fd)
             return False
 
         elif cursor.count() != 1:
             response.set_status("FAILED")
-            response.set_body("There is some problems with the server. "
-                              "Check the DataBase for more information")
+            response.set_body("There is some problems with the server.\n"
+                              "Contact the server owner for more information")
             self.send(response, sock_fd)
 
         else:
@@ -144,18 +146,20 @@ class Server:
                 self.send(message, dest)
 
     def handle_message(self, sock):
-        message = Message("", "")
-        message.deserialize(self.receive(sock))
-
+        message = self.receive(sock)
         message_type = message.get_type()
+
         if message_type == "MESSAGE":
             self.broadcast_message(sock, message)
+
         elif message_type == "LOGOUT":
             self.log_out(sock)
+
         elif message_type == "LIKE":
             owner = message.get_body()
             users = self.db_client.chat.users
-            users.update_one({"username": owner}, {"$inc":{"likes": 1}})
+            users.update_one({"username": owner}, {"$inc": {"likes": 1}})
+
         elif message_type == "BLOCK":
             user_to_block = message.get_body()
             user = message.get_username()
@@ -163,13 +167,14 @@ class Server:
             users.update_one({"username": user_to_block},
                              {"$inc": {"blocks": 1}})
             users.update_one({"username": user},
-                             {"$push":{"blocked_users": user_to_block}})
+                             {"$push": {"blocked_users": user_to_block}})
+
         elif message_type == "UNBLOCK":
             user = message.get_username()
             user_to_unblock = message.get_body()
             users = self.db_client.chat.users
             users.update_one({"username": user_to_unblock},
-                             {"$inc":{"blocks": -1}})
+                             {"$inc": {"blocks": -1}})
             users.update_one({"username": user},
                              {"$pull": {"blocked_users": user_to_unblock}})
         else:
@@ -182,16 +187,19 @@ class Server:
             self._clients[sock][1][1]))
         self.send_to_all_except(notification, [sock])
         del self._clients[sock]
+        sock.close()
         sys.stdout.write(notification.get_body())
         sys.stdout.flush()
 
     def broadcast_message(self, sender, message):
-        users = self.db_client.chat.messages
-        users.insert(message._base_message.copy())
+        messages = self.db_client.chat.messages
+        messages.insert(message._base_message.copy())
         self.send_to_all_except(message, [sender])
 
     def receive(self, sock_fd, length=RECV_BUFFER):
-        return sock_fd.recv(length).decode()
+        m = Message("", "")
+        m.deserialize(sock_fd.recv(length).decode())
+        return m
 
     def run(self):
         while True:
