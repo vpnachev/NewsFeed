@@ -4,15 +4,15 @@ import register
 from libs.encrypt_hash import crypto
 from libs.derser import Message
 
-class RegisterGui(register.Register, QtGui.QWidget):
+
+class RegisterGui(QtGui.QWidget):
     def __init__(self):
-        register.Register.__init__(self)
-        QtGui.QMainWindow.__init__(self)
-        # super(RegisterGui, self).__init__()
+        self.__registrator = register.Register()
+        QtGui.QWidget.__init__(self)
         self.init_gui()
 
     def set_server_address(self, host, port):
-        register.Register.set_server(self, host, port)
+        self.__registrator.set_server(host, port)
 
     # def connect(self):
     #    return register.Register.connect(self)
@@ -28,7 +28,7 @@ class RegisterGui(register.Register, QtGui.QWidget):
 
         if len(self.__server_port.text()) == 0 or \
                 not(0 < int(self.__server_port.text()) and
-                int(self.__server_port.text()) < 65534):
+                    int(self.__server_port.text()) < 65534):
             self.set_responce_text("Empty or incorrect port")
             return False
 
@@ -41,18 +41,14 @@ class RegisterGui(register.Register, QtGui.QWidget):
             return False
 
         self.set_server_address(self.__server_addr.text(),
-                        int(self.__server_port.text()))
+                                int(self.__server_port.text()))
         uname = self.__user_text.text()
         passwd = self.__pass_text.text()
-        print(uname, passwd, crypto(passwd), sep="  ")
         passwd = crypto(passwd)
-        print(passwd)
-        status, response = register.Register.register(
-                self,
-                uname,
-                passwd)
-        self.set_responce_text(response.get_status() + "\n"+
+        status, response = self.__registrator.register(uname, passwd)
+        self.set_responce_text(response.get_status() + "\n" +
                                response.get_body())
+        self.__register_button.setEnabled(False)
 
     def init_gui(self):
         self.__register_button = QtGui.QPushButton("Register", self)

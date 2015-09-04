@@ -15,6 +15,9 @@ class Register:
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.settimeout(60)
 
+    def __del__(self):
+        self._server_socket.close()
+
     def register(self, username, password):
         '''
         :param username: username as string
@@ -32,7 +35,6 @@ class Register:
 
         self.send(reg_message)
         response_msg = self.receive()
-        self.close()
         if response_msg.get_type() != "REGISTER":
             print("Non REGISTER message was sent from server")
             return False, response_msg
