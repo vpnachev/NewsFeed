@@ -106,7 +106,7 @@ class Server:
             return False
 
         users = self.db_client.chat.users
-        cursor = users.find({"username": username, "password": password})
+        cursor = users.find({"username": username})
 
         if cursor.count() == 0:
             response.set_status("FAILED")
@@ -119,6 +119,11 @@ class Server:
             response.set_status("FAILED")
             response.set_body("There is some problems with the server.\n"
                               "Contact the server owner for more information")
+            self.send(response, sock_fd)
+
+        elif cursor.next()["password"] != password:
+            response.set_status("FAILED")
+            response.set_body("Wrong password")
             self.send(response, sock_fd)
 
         else:

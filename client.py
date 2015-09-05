@@ -31,6 +31,9 @@ class Client:
         self._server_socket.settimeout(60)
         self.username = None
 
+    def set_server(self, server_addr, server_port):
+        self._server = (server_addr, server_port)
+
     def connect(self):
         try:
             self._server_socket.connect(self._server)
@@ -60,9 +63,9 @@ class Client:
         response = self.receive()
         if response.get_status() == "OK":
             self.username = username
-            return True
+            return True, response
         print(response.get_body())
-        return False
+        return False, response
 
     def log_out(self):
         log_out_message = Message(self.username, "LOGOUT")
@@ -112,7 +115,7 @@ class Client:
         self.username = sys.stdin.readline().split("\n")[0]
         password = getpass.getpass("<password>:")
         password = crypto(password)
-        if not self.log_in(self.username, password):
+        if not self.log_in(self.username, password)[0]:
             return
 
         del password

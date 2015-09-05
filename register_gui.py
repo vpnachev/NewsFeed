@@ -22,7 +22,7 @@ class RegisterGui(QtGui.QWidget):
             self.set_response_text("Empty server address")
             return False
 
-        if int(self.__server_port.text()) not in range(1, 2**16 + 1):
+        if int(self.__server_port.text()) not in range(1, 2**16):
             self.set_response_text("Empty or incorrect port")
             return False
 
@@ -56,6 +56,7 @@ class RegisterGui(QtGui.QWidget):
                                    "\nRestart the application "
                                    "if you want to retry")
         self.__register_button.setEnabled(False)
+        return True
 
     def init_gui(self):
         self.__register_button = QtGui.QPushButton("&Register", self)
