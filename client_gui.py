@@ -6,13 +6,22 @@ import time
 
 
 class PopUpLogIn(QtGui.QWidget):
-    def __init__(self, client):
-        QtGui.QWidget.__init__(self)
+    def __init__(self, client, p=None):
+        QtGui.QWidget.__init__(self, p)
+        self.__logedin = False
         self.client = client
         self.init_ui()
 
+    def closeEvent(self, QCloseEvent):
+        if self.is_loged_in():
+            self.client.log_out()
+        QCloseEvent.accept()
+
     def set_status(self, text):
         self.status.setText(text)
+
+    def is_loged_in(self):
+        return self.__logedin
 
     def init_ui(self):
         self.server_ip = QtGui.QLineEdit("127.0.0.1")
@@ -32,18 +41,19 @@ class PopUpLogIn(QtGui.QWidget):
         self.cancel_butt = QtGui.QPushButton("&Cancel", self)
         self.status = QtGui.QLabel()
 
-        layout = QtGui.QGridLayout()
-        layout.addWidget(self.server_ip, 0, 0, 1, 2)
-        layout.addWidget(self.server_port, 0, 2, 1, 2)
-        layout.addWidget(self.uname, 1, 0, 1, 2)
-        layout.addWidget(self.passwd, 1, 2, 1, 2)
-        layout.addWidget(self.login_butt, 2, 0, 1, 1)
-        layout.addWidget(self.cancel_butt, 2, 2, 1, 1)
-        layout.addWidget(self.status, 3, 0, 5, 4)
+        self.layout = QtGui.QGridLayout()
+        self.layout.addWidget(self.server_ip, 0, 0, 1, 2)
+        self.layout.addWidget(self.server_port, 0, 2, 1, 2)
+        self.layout.addWidget(self.uname, 1, 0, 1, 2)
+        self.layout.addWidget(self.passwd, 1, 2, 1, 2)
+        self.layout.addWidget(self.login_butt, 2, 0, 1, 1)
+        self.layout.addWidget(self.cancel_butt, 2, 2, 1, 1)
+        self.layout.addWidget(self.status, 3, 0, 5, 4)
 
         self.cancel_butt.clicked.connect(self.close)
         self.login_butt.clicked.connect(self.login)
-        self.setLayout(layout)
+        self.setGeometry(0, 0, 400, 300)
+        self.setLayout(self.layout)
         self.setWindowTitle("Login Panel")
         self.show()
 
@@ -68,30 +78,68 @@ class PopUpLogIn(QtGui.QWidget):
                                int(self.server_port.text()))
         if not self.client.connect():
             self.set_status("Connection problems\n"
-                            "Check server address and port or\ntry again later")
+                            "Check server address and port or try again later")
             return False
 
         uname = self.uname.text()
         passwd = crypto(self.passwd.text())
         self.set_status("asdasd")
-        ok, response = self.client.log_in(uname, passwd)
-        if ok:
+        self.__logedin, response = self.client.log_in(uname, passwd)
+        if self.is_loged_in():
             self.set_status("Success\n" + response.get_body())
-            self.client.log_out()
-            # self.cancel_butt.click()
+            self.uname.setParent(None)
+            self.passwd.setParent(None)
+            self.server_port.setParent(None)
+            self.server_ip.setParent(None)
+            self.login_butt.setParent(None)
+            self.cancel_butt.setParent(None)
+            self.status.setParent(None)
+
         else:
             self.set_status("Failed\n" + response.get_body())
             # self.cancel_butt.click()
         self.login_butt.setEnabled(False)
-
+        return self.is_loged_in()
 
     def keyPressEvent(self, QKeyEvent):
         if QKeyEvent.key() == QtCore.Qt.Key_Escape:
             self.cancel_butt.animateClick()
         elif QKeyEvent.key() == QtCore.Qt.Key_Return\
-            or QKeyEvent.key() == QtCore.Qt.Key_Enter:
+                or QKeyEvent.key() == QtCore.Qt.Key_Enter:
             self.login_butt.animateClick()
+'''
+class ClientGui(QtGui.QMainWindow):
+    def __init__(self):
+        QtGui.QMainWindow.__init__(self)
+        self.cent_widg = QtGui.QWidget(self)
+        self.setCentralWidget(self.cent_widg)
+        self.__cl = client.Client()
+        self.init_ui()
+
+    def init_ui(self):
+        self.setGeometry(200, 200, 800, 600)
+        self.show()
+        self.pop()
 
 
+    def pop(self):
+        self.login_popup = PopUpLogIn(self.__cl, self)
+
+    def closeEvent(self, QCloseEvent):
+        numWindows = len(widgetList)
+        if numWindows > 1:
+            self.run()
+            QCloseEvent.ignore()
+        else:
+            QCloseEvent.accept()
+
+    def run(self):
+        print("hahaha"*10)
+
+
+'''
 if __name__ == "__main__":
-    pass
+    app = QtGui.QApplication(sys.argv)
+    cl = client.Client()
+    chat = PopUpLogIn(cl)
+    sys.exit(app.exec_())
